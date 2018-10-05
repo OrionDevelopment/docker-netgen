@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using docker_netgen.Configuration;
 using docker_netgen.Utils;
 using Docker.DotNet;
@@ -70,10 +71,15 @@ namespace docker_netgen
                     configurationSection.Bind(dockerGenConfiguration);
                     dockerGenConfigurations.Add(dockerGenConfiguration);
                 }
+
+                if (dockerGenConfigurations.Any()) return dockerGenConfigurations;
                 
-                if (dockerGenConfigurations.)
-                
-            })
+                var localConfiguration = new DockerGenConfiguration();
+                configuration.Bind(localConfiguration);
+                dockerGenConfigurations.Add(localConfiguration);
+
+                return dockerGenConfigurations;
+            });
         }
     }
 }

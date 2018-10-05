@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using docker_netgen.Runtime.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,14 +7,14 @@ namespace docker_netgen
 {
     class Program
     {
-        static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var serviceBuilder = new ServiceCollection();
             
-            Startup.ConfigureServices(serviceBuilder);
+            Startup.ConfigureServices(serviceBuilder, args);
 
             var services = serviceBuilder.BuildServiceProvider();
-            services.GetService<IDockerGenRuntime>().Run();
+            await services.GetService<IDockerGenRuntime>().Run();
         }
     }
 }
