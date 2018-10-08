@@ -14,7 +14,8 @@ namespace docker_netgen
             Startup.ConfigureServices(serviceBuilder, args);
 
             var services = serviceBuilder.BuildServiceProvider();
-            await services.GetService<IDockerGenRuntime>().Run();
+            await services.GetService<IDockerGenRuntime>()
+                .Run();
         }
     }
 }
