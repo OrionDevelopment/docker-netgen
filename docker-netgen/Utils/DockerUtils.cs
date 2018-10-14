@@ -18,5 +18,13 @@ namespace docker_netgen.Utils
         {
             return RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? new Uri("npipe://./pipe/docker_engine") : new Uri("unix:/var/run/docker.sock");
         }
+
+        public static string GetCurrentContainerId()
+        {
+            //TODO: Replace if result with actual PowerShell command.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return "";
+
+            return "basename \"$(cat /proc/1/cpuset)\"".Bash();
+        }
     }
 }

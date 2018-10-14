@@ -1,21 +1,18 @@
-﻿using System;
-using System.Threading.Tasks;
-using docker_netgen.Runtime.Core;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace docker_netgen
+namespace docker_netgen.Utils
 {
-    class Program
+    public class ServiceUtils
     {
-        public static async Task Main(string[] args)
+        public static IServiceProvider BuildServices(params string[] args)
         {
             var serviceBuilder = new ServiceCollection();
             
             Startup.ConfigureServices(serviceBuilder, args);
 
             var services = serviceBuilder.BuildServiceProvider();
-            await services.GetService<IDockerGenRuntime>()
-                .Run();
+            return services;
         }
     }
 }

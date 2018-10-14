@@ -28,6 +28,7 @@ namespace docker_netgen
             ConfigureDockerGenConfigurations(services);
             ConfigureDockerGenRuntime(services);
             ConfigureTemplateEngine(services);
+            ConfigureLoadedAssemblies(services);
         }
 
         private static void ConfigureLoggingServices(IServiceCollection services)
@@ -107,6 +108,14 @@ namespace docker_netgen
             services.AddSingleton<ITemplateFactory, SimpleTemplateFactory>();
             services.Decorate<ITemplateFactory, CachingTemplateFactory>();
             services.AddSingleton<IImportParser, SimpleImportParser>();
+        }
+
+        private static void ConfigureLoadedAssemblies(IServiceCollection services)
+        {
+            services.AddSingleton(provider => AppDomain.CurrentDomain.GetAssemblies()
+                .Where(assembly => !assembly.IsDynamic)
+                .Where(assembly => assembly.Location != null && assembly.Location.Any())
+                .ToList().AsEnumerable());
         }
     }
 }
