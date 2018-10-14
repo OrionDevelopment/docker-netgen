@@ -13,6 +13,9 @@ using System.Collections.Generic;
 using docker_netgen.Utils;
 using Docker.DotNet.Models;
 
+
+//////////////////// Script
+
 //Default configuration for a reverse proxy
 EmitNewLine(Writer, @"# If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
 # scheme used to connect to this server
@@ -225,7 +228,45 @@ upstream {domain} {{");
 
     //Emit the closing tag for the domain.
     EmitNewLine(Writer, "}");
+    
+    var defaultVirtualRootPath = Configuration["DefaultVirtualRootPath"];
+    var defaultContainerCertDirectory = Configuration["DefaultContainerCertDirectory"];
+
+    var proto = GetCommonEnvironmentVariable(grouping, "VIRTUAL_PROTO", "http");
+    var networkTag = GetCommonEnvironmentVariable(grouping, "NETWORK_ACCESS", "external");
+    var httpsMethod = GetCommonEnvironmentVariable(grouping, "HTTPS_METHOD", "redirect");
+    var sslPolicy = GetCommonEnvironmentVariable(grouping, "SSL_POLICY", "Mozilla-Intermediate");
+    var hsts = GetCommonEnvironmentVariable(grouping, "HSTS", "max-age=31536000");
+    var virtualRootPath = GetCommonEnvironmentVariable(grouping, "VIRTUAL_ROOT", defaultVirtualRootPath);
+    var certName = GetCommonEnvironmentVariable(grouping, "CERT_NAME", "");
+    
+    var vhostCert = FileUtils.GetClosestMatchingFileInDirectory(defaultContainerCertDirectory, domain + ".crt");
+    vhostCert = vhostCert.Replace(".crt", "").Replace(".key", "").Trim();
+    
+    var cert = certName != null ? certName : vhostCert;
+    var certPath = Path.Combine(defaultContainerCertDirectory, domain + ".crt");
+    var certKeyPath = Path.Combine(defaultContainerCertDirectory, domain + ".key");
+
+    var isHttps = (httpsMethod != "nohttps") && (cert != "") && File.Exists(certPath) && File.Exists(certKeyPath);
+
+    if (isHttps)
+    {
+
+    }
+    else
+    {
+
+    }
 }
+
+
+
+
+
+
+
+
+//////////////////// Functions
         
 void GenerateServerSection(ContainerInspectResponse container, PortBinding portBinding, EndpointSettings network, int port)
 {
@@ -258,19 +299,12 @@ void GenerateServerSection(ContainerInspectResponse container, PortBinding portB
     }
 }
 
-/*
-var domains = Containers
-                .Select(c => c.Config)
-                .Where(c => c.Env.Any(e => e.StartsWith("VIRTUAL_HOST"))
-                .Select(c => c.Env.FirstOrDefault(e => e.StartsWith("VIRTUAL_HOST"))
-                .Distinct()
-                .Select(e => e.Replace("VIRTUAL_HOST=", ""))
-                .SelectMany(d => d.Split(",").ToList())
-                .Distinct();
-
-domains.ForEach(domain => {
-EmitNewLine(@"
-
-")
-})
-*/
+string GetCommonEnvironmentVariable(IEnumerable<ContainerInspectResponse> containers, string environmentVariables, string defaultValue)
+{
+    var proto = grouping.Select(c => c.Config.Env.FirstOrDefault(e => e.StartsWith($"{environmentVariables}="))).FirstOrDefault();
+    if (proto == null || proto.Trim() == "")
+    {
+        proto = defaultValue;
+    }
+    return proto.Replace($"{environmentVariables}=", "").Trim();
+}
