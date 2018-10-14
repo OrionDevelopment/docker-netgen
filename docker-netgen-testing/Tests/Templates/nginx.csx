@@ -6,6 +6,7 @@ using static docker_netgen.Template.Script.ScriptOutput;
 //Normal reference loading by CSharpScript still supported (see #r)
 using docker_netgen.Template.Core;
 using Microsoft.Extensions.Configuration;
+using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -143,10 +144,10 @@ EmitNewLine(Writer, $@"    access_log /var/log/nginx/access.log vhost;
 }
 
 //Holds the current container
-var currentContainer = containers.First(c => c.ID.Equals(DockerUtils.GetCurrentContainerId()));
+var currentContainer = Containers.First(c => c.ID.Equals(DockerUtils.GetCurrentContainerId()));
 
 //Group all domains together based on the virtual host key.
-var groupedContainersByDomain = containers
+var groupedContainersByDomain = Containers
                     .Where(c => c.Config.Env.Any(e => e.StartsWith("VIRTUAL_HOST")))
                     .GroupBy(c => c.Config.Env.FirstOrDefault(s => s.StartsWith("VIRTUAL_HOST="))?.Replace("VIRTUAL_HOST=", "").Trim())
                     .ToList();
@@ -157,7 +158,7 @@ foreach (IGrouping<string,ContainerInspectResponse> grouping in groupedContainer
     //Skip all groupings whos key is empty or null (No virtual host specified)
     if (grouping.Key == null || !grouping.Key.Any())
     {
-        continue for;
+        continue;
     }
 
     //The domain cna be hashed if need be.
@@ -180,15 +181,43 @@ upstream {domain} {{");
                 if (containerNetworkName != "ingress" &&
                     (currentContainerNetworkName == containerNetworkName) || containerNetworkName == "host")
                 {
-                    //We are can connect to the target container.
-                    EmitNewLine(Writer, $"## Can be connected with {currentContainerNetworkName} network");
+                    var openPortCount = response.NetworkSettings.Ports.Count;
+                    var exposedPortCount = response.Config.ExposedPorts.Count;
                     
+                    PortBinding portBinding = null;
+                    var exposedPort = -1;
+
+                    if (openPortCount == 1 || (openPortCount == 0 && exposedPortCount == 1))
+                    {
+                        if (openPortCount == 1)
+                        {
+                            portBinding = response.NetworkSettings.Ports.First().Value[0];
+                            exposedPort = Convert.ToInt32(portBinding.HostPort);
+                        }
+                        else
+                        {
+                            exposedPort =
+                                Convert.ToInt32(response.Config.ExposedPorts.First().Key.Split("/")[0]);
+                        }
+                    }
+                    else
+                    {
+                        exposedPort = Convert.ToInt32(response.Config.Env.First(e => e.StartsWith("VIRTUAL_PORT="))
+                            .Replace("VIRTUAL_PORT=", ""));
+
+                        portBinding = new PortBinding()
+                        {
+                            HostIP = response.NetworkSettings.Networks[containerNetworkName].IPAddress,
+                            HostPort = exposedPort.ToString()
+                        };
+                    }
+                        
+                    GenerateServerSection(response, portBinding, response.NetworkSettings.Networks[containerNetworkName], exposedPort);
                 }
                 else
                 {
-                    //We can not connect to the target container.
                     EmitNewLine(Writer, @"# Cannot connect to network of this container
-				server 127.0.0.1 down;");
+                    server 127.0.0.1 down;"); 
                 }
             }
         }
@@ -197,8 +226,37 @@ upstream {domain} {{");
     //Emit the closing tag for the domain.
     EmitNewLine(Writer, "}");
 }
-
-
+        
+void GenerateServerSection(ContainerInspectResponse container, PortBinding portBinding, EndpointSettings network, int port)
+{
+    if (portBinding != null)
+    {
+        if (container.Node != null)
+        {
+            //Container is connected to a swarm node with exposed port. Connecting via swarm.
+            EmitNewLine(Writer, $"# {container.Node.Name}/{container.Name}");
+            EmitNewLine(Writer, $"server {container.Node.IPAddress}:{port};");
+        }
+        else
+        {
+            //Container is connected via local docker network and port.
+            EmitNewLine(Writer, $"# container.Name");
+            EmitNewLine(Writer, $"server {network.IPAddress}:{port};");
+        }
+    }
+    else if (port >= 0)
+    {
+        //Container is connected via local docker network and port.
+        EmitNewLine(Writer, $"# container.Name");
+        EmitNewLine(Writer, $"server {network.IPAddress}:{port};");
+    }
+    else
+    {
+        //Container is connected via local docker network.
+        EmitNewLine(Writer, $"# container.Name");
+        EmitNewLine(Writer, $"server {network.IPAddress} down;");
+    }
+}
 
 /*
 var domains = Containers

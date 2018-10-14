@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -61,45 +62,7 @@ Following errors detected:
         /// <inheritdoc />
         public async Task Execute(IList<ContainerInspectResponse> containers, IWriter writer)
         {
-            var currentContainer = containers.First(c => c.ID.Equals(DockerUtils.GetCurrentContainerId()));
-            var groupedContainersByDomain = containers
-                    .Where(c => c.Config.Env.Any(e => e.StartsWith("VIRTUAL_HOST")))
-                    .GroupBy(c => c.Config.Env.FirstOrDefault(s => s.StartsWith("VIRTUAL_HOST="))?.Replace("VIRTUAL_HOST=", ""))
-                    .ToList();
-
-            foreach (IGrouping<string,ContainerInspectResponse> grouping in groupedContainersByDomain)
-            {
-                var domain = grouping.Key;
-                domain = domain.StartsWith("~") ? domain.Sha1() : domain;
-
-                foreach (ContainerInspectResponse response in grouping)
-                {
-                    foreach (string currentContainerNetworkName in currentContainer.NetworkSettings.Networks.Keys)
-                    {
-                        foreach (string containerNetworkName in response.NetworkSettings.Networks.Keys)
-                        {
-                            if (containerNetworkName != "ingress" &&
-                                (currentContainerNetworkName == containerNetworkName) || containerNetworkName == "host")
-                            {
-                                if (response.Config.ExposedPorts.Count == 1)
-                                {
-                                    
-                                }
-                                else
-                                {
-                                    
-                                }
-                            }
-                            else
-                            {
-                                
-                            }
-                        }
-                    }
-                }
-            }
-            
-            var global = new Global(containers, (SimpleWriter) writer, _configuration);
+            var global = new Global(containers, writer, _configuration);
             await this._script.RunAsync(global, exception => throw exception, CancellationToken.None);
         }
     }

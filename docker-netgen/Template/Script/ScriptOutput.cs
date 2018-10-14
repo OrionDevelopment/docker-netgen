@@ -1,5 +1,4 @@
 using docker_netgen.Template.Core;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace docker_netgen.Template.Script
 {
